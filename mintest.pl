@@ -20,7 +20,9 @@ my %gravity = (
 
 	my $image = _load_image( $img_name );
 	#die("Annote1: text => $text, gravity => $gravity{$align}, font => $font, fill => $text_color");
-	$image->Annotate(text => $caption, gravity => "SoutWest", font => 'impact.ttf', fill => 'green', pointsize => 40);
+
+  $image->Annotate(font=>'impact.ttf', pointsize => 40, fill=>'green', text=>$caption, x=> '40', y => '40');
+  
 	_write_image($image, $img_name);
 
 # utility functions
