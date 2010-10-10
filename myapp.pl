@@ -160,14 +160,14 @@ $text_elements, $top);
 		if ($lf_width + $line_width + $padding * 2 > $width){
 
 			# draw it out then!
-			if ($align[1] == 'r') {
+			if (substr($align,1,1) == 'r') {
 				$left = $width - $padding - $line_width;
 			}
 
-			if ($align[0] == 'b') {
-				$text = implode(' ',array_slice($text_elements,$i+1,$line_beginning-$i));
+			if (substr($align,0,1) == 'b') {
+				$text = join(' ',@text_elements[$i+1..$line_beginning-$i]);
 			} else {
-				$text = implode(' ',array_slice($text_elements,$line_beginning,$i - $line_beginning));
+				$text = join(' ',@text_elements[$line_beginning..$i - $line_beginning]);
 			}
 
 			# draw the text
