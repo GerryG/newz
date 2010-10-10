@@ -8,6 +8,7 @@
 #use 5.012; # automatically turns on strict
 use Image::Grab;
 use GD;
+use Image::Magick;
 
 use Mojolicious::Lite;
 
@@ -48,7 +49,7 @@ $text_elements, $top);
 
 	# second, make sure its an image
 	my ($width, $height, $attr);
-	if (!(list($width, $height, $$this{imgtype}, $attr) = getimagesize($image))) {
+	if (!(list($width, $height, $$this{imgtype}, $attr) = Image::Magick::Ping($image))) {
 		&error("Error: Cannot get parameters of specified image,");
 	}
 
