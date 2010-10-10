@@ -7,10 +7,17 @@
 #use feature ':5.10';
 #use 5.012; # automatically turns on strict
 use Image::Grab;
-use GD;
+#use GD;
 use Image::Magick;
 
 use Mojolicious::Lite;
+
+my %geometry = {
+	ul => "NorthWest",
+	ur => "NorthEast",
+	bl => "SouthWest",
+	br => "SouthEast",
+};
 
 get '/' => 'index';
 
@@ -23,9 +30,11 @@ post '/add_caption' => sub {
 
 	$caption =~ s/[^\w\s]+//g;
 
-	#$image = _get_image( $img_url, $img_name );
+	#my $pic = _get_image( $img_url );
+	_get_image_and_save( $img_url, $img_name );
+	my $image = _load_image( $img_name );
 	my $obj = {};
-	&create($obj,$img_url, $caption, 'bl', "impact.ttf");
+	&_create($obj,$image, $caption, 'bl', "impact.ttf");
 
 	$self->render(
 		template => 'welcome',
@@ -35,7 +44,7 @@ post '/add_caption' => sub {
 	);
 } => 'add_caption';
 
-sub create {
+sub _create {
 my ($this,$image,$text,$align,$font,
     $fontsize,$resize_width, $padding, $text_color, $shadow_color)
          = (shift,shift,shift,shift,shift,
@@ -49,7 +58,7 @@ $text_elements, $top);
 
 	# second, make sure its an image
 	my ($width, $height, $attr);
-	if (!(list($width, $height, $$this{imgtype}, $attr) = Image::Magick::Ping($image))) {
+	if (!(list($width, $height) = ($image->height(), $image->width()))) {
 		&error("Error: Cannot get parameters of specified image,");
 	}
 
@@ -64,14 +73,6 @@ $text_elements, $top);
 		$fontsize = 15;
 		&error("Error: Invalid font specified!,");
 	}
-
-	if ($$this{imgtype} == 1) {		# gif
-		$$this{img} = imagecreatefromgif($image);
-	} elsif ($$this{imgtype} == 2) {		# jpg
-		$$this{img} = imagecreatefromjpeg($image);
-	} elsif ($$this{imgtype} == 3) {		# png
-		$$this{img} = imagecreatefrompng($image);
-	} else { } # i don't care about other formats'
 
 	if (!$$this{img}) {
 		&error("Error: Cannot use specified image");
@@ -113,7 +114,7 @@ $text_elements, $top);
 	}
 
 	# next, we should try to create the text.. hopefully it wraps nicely
-	$ENV{'GDFONTPATH'} = `pwd`;		# hack, just in case
+	#$ENV{'GDFONTPATH'} = `pwd`;		# hack, just in case
 
 	# grab the font height, M is supposed to be big, with any random chars lying around
 	($font_height, $space_width) = $this->img_size($fontsize,$font);
@@ -149,7 +150,8 @@ $text_elements, $top);
 	# draw text elements starting from alignment position.. 
 	for (;$i >= 0 && $i < $c;$i += $inc){
 
-		$lf_width = $this->img_width(imagettfbbox($fontsize,0,$font,$text_elements[$i]));
+		#$lf_width = $this->img_width(imagettfbbox($fontsize,0,$font,$text_elements[$i]));
+		$lf_width = int($fontsize*0.9);
 
 		# add a space
 		if ($i != $line_beginning) {
@@ -171,8 +173,10 @@ $text_elements, $top);
 			}
 
 			# draw the text
-			imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
-			imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
+			$image->Annotate(text => $text, geometry => $geometry{$align}, font => $font, color => $text_color);
+			#$image->Annotate(text => $text, geometry => $geometry{$align}, font => $font);
+			#imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
+			#imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
 
 			# keep moving, reset params
 			$top += $font_height + $row_spacing;
@@ -219,6 +223,18 @@ my ($fontsize, $font) = (shift, shift);
 	#imagettfbbox($fontsize,0,$font,' ')
         #$w = abs(max($sz_array[7] - $sz_array[1], $sz_array[5] - $sz_array[3]));
 	($h, $w);
+}
+
+sub _load_image {
+my $im = Image::Magick->new;
+	$im->Read(shift);
+}
+
+sub _get_image {
+    my $pic = new Image::Grab;
+    $pic->url( shift );
+    $pic->grab;
+    $pic;
 }
 
 sub _get_image_and_save {
