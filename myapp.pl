@@ -12,12 +12,12 @@ use Image::Magick;
 
 use Mojolicious::Lite;
 
-my %geometry = {
-	ul => "NorthWest",
-	ur => "NorthEast",
+my %gravity = (
+	tl => "NorthWest",
+	tr => "NorthEast",
 	bl => "SouthWest",
 	br => "SouthEast",
-};
+);
 
 get '/' => 'index';
 
@@ -31,10 +31,11 @@ post '/add_caption' => sub {
 	$caption =~ s/[^\w\s]+//g;
 
 	#my $pic = _get_image( $img_url );
-	_get_image_and_save( $img_url, $img_name );
+	$img_name = _get_image_and_save( $img_url, $img_name );
 	my $image = _load_image( $img_name );
 	my $obj = {};
 	&_create($obj,$image, $caption, 'bl', "impact.ttf");
+	&_write_image($image, $img_name);
 
 	$self->render(
 		template => 'welcome',
@@ -49,7 +50,7 @@ my ($this,$image,$text,$align,$font,
     $fontsize,$resize_width, $padding, $text_color, $shadow_color)
          = (shift,shift,shift,shift,shift,
             shift||15, shift || 0, shift||5, shift||-1, shift||-1);
-my (@align, $c, $dbg, $font_height, $i, $inc, $left, $lf_width,
+my (@align, $c, $font_height, $i, $inc, $left, $lf_width,
 $line_beginning, $line_width, $row_spacing, $space_width, @text_elements,
 $text_elements, $top);
 
@@ -57,26 +58,23 @@ $text_elements, $top);
 	#ErrorHandler,
 
 	# second, make sure its an image
-	my ($width, $height, $attr);
-	if (!(list($width, $height) = ($image->height(), $image->width()))) {
-		&error("Error: Cannot get parameters of specified image,");
-	}
+	my ($width, $height) = ($image->Get('height'), $image->Get('width'));
 
 	# ensure position is correct
-	if (!grep($align==$_,('tl','tr','bl','br'))) {
+	if (!grep($align eq $_,('tl','tr','bl','br'))) {
 		$align = 'tl';
 	}
 
 	# fix up the font size
 	$fontsize =~ s/\s*(.*)(px)?\s*/$1/;
-	if ($fontsize == '' || !is_int($fontsize)) {
+	if ($fontsize eq '' || $fontsize=~/\D/) {
 		$fontsize = 15;
 		&error("Error: Invalid font specified!,");
 	}
 
-	if (!$$this{img}) {
-		&error("Error: Cannot use specified image");
-	}
+	#if (!$$this{img}) {
+		#&error("Error: Cannot use specified image");
+	#}
 
 	# see if we need to resize the image first
 	if ($resize_width != 0){
@@ -99,25 +97,11 @@ $text_elements, $top);
 		$$this{img} = $thumb_img;
 	}
 
-	# allocate colors for text
-	if ($text_color == -1) {
-		$text_color = $$this{img}->colorAllocate(255, 255, 255);
-	} elsif ((ref $text_color) == "ARRAY") {
-		$text_color = $$this{img}->colorAllocate($$text_color[0], $$text_color[1], $$text_color[2]);
-	}
-
-	# allocate colors for text shadow
-	if ($shadow_color == -1) {
-		$shadow_color = $$this{img}->colorAllocate(0, 0, 0);
-	} elsif ((ref $text_color) == "ARRAY") {
-		$shadow_color = $$this{img}->colorAllocate( $$shadow_color[0], $$shadow_color[1], $$shadow_color[2]);
-	}
-
 	# next, we should try to create the text.. hopefully it wraps nicely
 	#$ENV{'GDFONTPATH'} = `pwd`;		# hack, just in case
 
 	# grab the font height, M is supposed to be big, with any random chars lying around
-	($font_height, $space_width) = $this->img_size($fontsize,$font);
+	($font_height, $space_width) = _img_size($fontsize,$font);
 	$row_spacing = int($font_height * .2);	# purely arbitrary value
 
 
@@ -136,7 +120,7 @@ $text_elements, $top);
 	$c = $#text_elements+1;
 	$i = 0;
 
-	if ($align[0] == 'b'){
+	if ($align[0] eq 'b'){
 		$top = $height - $padding;
 		$font_height = $font_height * -1;
 		$row_spacing  = $row_spacing * -1;
@@ -144,7 +128,7 @@ $text_elements, $top);
 		$i = $c -1;
 	}
 
-	$dbg = get_get_var('dbg');
+	#$dbg = get_get_var('dbg');
 	$line_beginning = $i;
 
 	# draw text elements starting from alignment position.. 
@@ -162,19 +146,20 @@ $text_elements, $top);
 		if ($lf_width + $line_width + $padding * 2 > $width){
 
 			# draw it out then!
-			if (substr($align,1,1) == 'r') {
+			if (substr($align,1,1) eq 'r') {
 				$left = $width - $padding - $line_width;
 			}
 
-			if (substr($align,0,1) == 'b') {
+			if (substr($align,0,1) eq 'b') {
 				$text = join(' ',@text_elements[$i+1..$line_beginning-$i]);
 			} else {
 				$text = join(' ',@text_elements[$line_beginning..$i - $line_beginning]);
 			}
 
 			# draw the text
-			$image->Annotate(text => $text, geometry => $geometry{$align}, font => $font, color => $text_color);
-			#$image->Annotate(text => $text, geometry => $geometry{$align}, font => $font);
+			#die("Annote1: text => $text, gravity => $gravity{$align}, font => $font, color => $text_color");
+			$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, color => $text_color);
+			#$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font);
 			#imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
 			#imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
 
@@ -191,30 +176,30 @@ $text_elements, $top);
 
 	# get the last line too
 	if ($line_width != 0){
-		if ($align[1] == 'r') {
+		if ($align[1] eq 'r') {
 			$left = $width - $padding - $line_width;
 		}
 
-		if ($align[0] == 'b') {
-			$text = implode(' ',array_slice($text_elements,$i+1,$line_beginning-$i));
+		if ($align[0] eq 'b') {
+			$text = join(' ',@text_elements[$i+1..$line_beginning-$i]);
 		} else {
-			$text = implode(' ',array_slice($text_elements,$line_beginning,$i - $line_beginning));
+			$text = join(' ',@text_elements[$line_beginning..$i - $line_beginning]);
 		}
 
-		imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
-		imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
+		die("Annote2: text => $text, A: $align gravity => $gravity{$align}, font => $font, color => $text_color");
+		$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, color => $text_color);
+		#imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
+		#imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
 	}
 
-	imagecolordeallocate($this->img,$shadow_color);
-	imagecolordeallocate($this->img,$text_color);
-
-	restore_error_handler();
+	#imagecolordeallocate($this->img,$shadow_color);
+	#imagecolordeallocate($this->img,$text_color);
 
 	return 1;
 }
 
 # utility functions
-sub img_size {
+sub _img_size {
 my ($fontsize, $font) = (shift, shift);
 	my $h = int($fontsize*1.2);
 	#imagettfbbox($fontsize,0,$font,'Mjg')
@@ -226,17 +211,32 @@ my ($fontsize, $font) = (shift, shift);
 }
 
 sub _load_image {
+my $file = shift;
 my $im = Image::Magick->new;
-	$im->Read(shift);
+	die ("Image? $file I:$im") unless (defined($im) && defined($file));
+	$im->ReadImage($file);
+	$im;
 }
 
 sub _get_image {
-    my $pic = new Image::Grab;
-    $pic->url( shift );
-    $pic->grab;
-    $pic;
+	my $pic = new Image::Grab;
+	$pic->url( shift );
+	$pic->grab;
+	$pic;
 }
 
+sub _write_image {
+	my $file = $_[1] || 'image.jpg'; 
+	my $image = $_[0];
+	$file =~ s/\.(\w+)/_out.$1/;
+	# Now to save the image to disk
+	#open(IMAGE, ">$file");
+	#binmode IMAGE;  # for MSDOS derivations.
+	#print IMAGE $_[0];
+	#close IMAGE;
+	$image->Write($file);
+	return $file;
+}
 sub _get_image_and_save {
 
     my $file = $_[1] || 'image.jpg'; 
@@ -250,12 +250,6 @@ sub _get_image_and_save {
     close IMAGE;
     return $file;
 }
-
-sub _write_caption_to_image {}
-
-sub _output_image_to_fs {}
-
-
 
 app->start;
 
