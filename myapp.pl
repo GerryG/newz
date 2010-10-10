@@ -49,7 +49,7 @@ sub _create {
 my ($this,$image,$text,$align,$font,
     $fontsize,$resize_width, $padding, $text_color, $shadow_color)
          = (shift,shift,shift,shift,shift,
-            shift||15, shift || 0, shift||5, shift||-1, shift||-1);
+            shift||40, shift || 0, shift||5, shift||'black', shift||'white');
 my (@align, $c, $font_height, $i, $inc, $left, $lf_width,
 $line_beginning, $line_width, $row_spacing, $space_width, @text_elements,
 $text_elements, $top);
@@ -157,8 +157,8 @@ $text_elements, $top);
 			}
 
 			# draw the text
-			#die("Annote1: text => $text, gravity => $gravity{$align}, font => $font, color => $text_color");
-			$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, color => $text_color);
+			#die("Annote1: text => $text, gravity => $gravity{$align}, font => $font, fill => $text_color");
+			$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, fill => $text_color, pointsize => $fontsize);
 			#$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font);
 			#imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
 			#imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
@@ -186,8 +186,10 @@ $text_elements, $top);
 			$text = join(' ',@text_elements[$line_beginning..$i - $line_beginning]);
 		}
 
-		die("Annote2: text => $text, A: $align gravity => $gravity{$align}, font => $font, color => $text_color");
-		$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, color => $text_color);
+		#die("Annote2: text => $text, A: $align gravity => $gravity{$align}, font => $font, fill => $text_color, x=>$left, y=>$top, pointsize => $fontsize");
+		#$image->Crop(geometry => "100x100+20x20");
+		$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, fill => $shadow_color, x=>$left-1, y=>$top+1, pointsize => $fontsize);
+		$image->Annotate(text => $text, gravity => $gravity{$align}, font => $font, fill => $text_color, x=>$left, y=>$top, pointsize => $fontsize);
 		#imagettftext($this->img,$fontsize,0,$left-1,$top+1,$shadow_color,$font,$text);
 		#imagettftext($this->img,$fontsize,0,$left,$top,$text_color,$font,$text);
 	}
