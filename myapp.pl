@@ -50,8 +50,7 @@ sub _write_caption_to_image {}
 
 sub _output_image_to_fs {}
 
-
-
+app->secret('supersecretpassphrase!!!');
 app->start;
 
 __DATA__
